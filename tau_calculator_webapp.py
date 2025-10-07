@@ -1,0 +1,113 @@
+import streamlit as st
+import numpy as np
+
+
+def tau(f, f_min, f_max, f0, k):
+    """
+    Calculate temporal weight τ(f) for a given frequency
+    Clamped to range [0, 1]
+    """
+    s_min = 1 / (1 + np.exp(-k * (np.log(f_min) - np.log(f0))))
+    s_max = 1 / (1 + np.exp(-k * (np.log(f_max) - np.log(f0))))
+    s_f = 1 / (1 + np.exp(-k * (np.log(f) - np.log(f0))))
+    tau_value = (s_f - s_min) / (s_max - s_min)
+    return np.clip(tau_value, 0, 1)
+
+
+# Page configuration
+st.title("Temporal Weight Calculator (τ)")
+st.markdown("---")
+
+# Sidebar for common frequency expressions
+with st.sidebar:
+    st.header("Common Frequency Expressions")
+    st.code("Monthly: 1/(30.436875*24*3600)")
+    st.code("Weekly: 1/(7*24*3600)")
+    st.code("Daily: 1/(24*3600)")
+    st.code("Hourly: 1/3600")
+    st.code("Every 30 min: 1/1800")
+    st.code("Every 10 min: 1/600")
+    st.code("13 per hour: 13/3600")
+
+# Parameter input section
+st.header("Parameters")
+col1, col2 = st.columns(2)
+
+with col1:
+    f_min_input = st.text_input(
+        "f_min (minimum frequency in Hz)",
+        value="1/(30.436875*24*3600)",
+        help="Enter as expression or number"
+    )
+    f_max_input = st.text_input(
+        "f_max (maximum frequency in Hz)",
+        value="13/3600",
+        help="Enter as expression or number"
+    )
+
+with col2:
+    f0_input = st.text_input(
+        "f0 (reference frequency in Hz)",
+        value="1/3600",
+        help="Enter as expression or number"
+    )
+    k_input = st.number_input(
+        "k (steepness parameter)",
+        value=1.0,
+        min_value=0.1,
+        max_value=10.0,
+        step=0.1
+    )
+
+# Calculate parameters
+try:
+    f_min = eval(f_min_input)
+    f_max = eval(f_max_input)
+    f0 = eval(f0_input)
+    k = k_input
+
+    # Display calculated parameters
+    st.markdown("---")
+    st.subheader("Current Parameters")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("f_min", f"{f_min:.3e} Hz")
+    col2.metric("f_max", f"{f_max:.3e} Hz")
+    col3.metric("f0", f"{f0:.3e} Hz")
+    col4.metric("k", f"{k:.2f}")
+
+    # Frequency input section
+    st.markdown("---")
+    st.header("Calculate τ(f)")
+
+    f_input = st.text_input(
+        "Enter frequency in Hz or as expression",
+        value="1/3600",
+        help="Example: 1/3600 for hourly measurements"
+    )
+
+    # Calculate button
+    if st.button("Calculate", type="primary"):
+        try:
+            f = eval(f_input)
+
+            # Warning messages
+            if f < f_min:
+                st.warning(f"Frequency below f_min → τ(f) capped at 0")
+            elif f > f_max:
+                st.warning(f"Frequency above f_max → τ(f) capped at 1")
+
+            # Calculate tau
+            tau_value = tau(f, f_min, f_max, f0, k)
+
+            # Display results
+            st.success("Calculation Complete")
+            col1, col2 = st.columns(2)
+            col1.metric("Frequency f", f"{f:.6e} Hz")
+            col2.metric("Temporal Weight τ(f)", f"{tau_value:.4f}")
+
+        except Exception as e:
+            st.error(f"Invalid frequency input: {str(e)}")
+
+except Exception as e:
+    st.error(f"Invalid parameter input: {str(e)}")
+    st.info("Please check your parameter expressions")
